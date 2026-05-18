@@ -1,2 +1,2 @@
-org.apache.zookeeper.cli.CreateCommand
-org.apache.zookeeper.server.DigestCalculator
+org.apache.zookeeper.ClientCnxn
+org.apache.zookeeper.server.quorum.flexible.QuorumHierarchical
