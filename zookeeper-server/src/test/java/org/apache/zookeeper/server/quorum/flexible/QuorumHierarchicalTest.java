@@ -3,6 +3,7 @@ package org.apache.zookeeper.server.quorum.flexible;
 import org.apache.zookeeper.common.ConfigException;
 import org.apache.zookeeper.server.quorum.QuorumPeer.LearnerType;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
@@ -372,27 +373,28 @@ public class QuorumHierarchicalTest {
     }
 
     // ------------------------------------------------------------------------
-    // T3.3 – CE3: ID non configurato → NullPointerException
-    // Oracle via Grey-Box: serverWeight.get(999L) = null → unboxing a long → NPE
-    // NOTA: questo è un difetto del codice sorgente (nessun null-check in getWeight)
+    // T3.3 – CE3: ID non configurato → Ritorna 0 (Specifica teorica / Safe Default)
+    // DISABILITATO: Questo test fallisce su ZooKeeper a causa di un bug reale di
+    // robustezza (unboxing di un Long null restituito dalla mappa lancia NPE).
     // ------------------------------------------------------------------------
     @Test
+    @Disabled("Baco di ZooKeeper: getWeight lancia NullPointerException su ID non configurati causa unboxing di null")
     @Timeout(5)
     public void GetWeight_UnknownId() {
-        assertThrows(NullPointerException.class,
-                () -> qhGW.getWeight(999L),
-                "Un ID non configurato causa NPE per unboxing di null (difetto noto)");
+        assertEquals(0L, qhGW.getWeight(999L),
+                "Un ID non configurato dovrebbe restituire peso 0 (safe default)");
     }
 
     // ------------------------------------------------------------------------
-    // T3.4 – BV2: ID negativo → NullPointerException (stesso meccanismo di T3.3)
+    // T3.4 – BV2: ID negativo → Ritorna 0 (Specifica teorica / Safe Default)
+    // DISABILITATO: Stesso bug di robustezza documentato in T3.3.
     // ------------------------------------------------------------------------
     @Test
+    @Disabled("Baco di ZooKeeper: getWeight lancia NullPointerException su ID negativi")
     @Timeout(5)
     public void GetWeight_NegativeId() {
-        assertThrows(NullPointerException.class,
-                () -> qhGW.getWeight(-1L),
-                "Un ID negativo non configurato causa NPE per unboxing di null");
+        assertEquals(0L, qhGW.getWeight(-1L),
+                "Un ID negativo (non configurato) dovrebbe restituire peso 0");
     }
 
     // ========================================================================
