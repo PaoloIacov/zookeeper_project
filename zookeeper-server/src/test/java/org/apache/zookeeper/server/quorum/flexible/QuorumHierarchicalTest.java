@@ -575,4 +575,44 @@ public class QuorumHierarchicalTest {
         assertFalse(qh1.equals(qh2), "Istanze con configurazioni diverse non devono essere uguali");
     }
 
+    // ========================================================================
+    // TEST SUITE T7.x – Metodo: hashCode()
+    // ========================================================================
+
+    // T7.1 - CE1: due istanze equals → stesso hashCode (contratto Java)
+    // DISABILITATO: hashCode() contiene assert false → AssertionError con -ea (assertions abilitate da Maven)
+    @Test
+    @Disabled("hashCode() non implementato: assert false lancia AssertionError quando le assertions JVM sono abilitate")
+    @Timeout(5)
+    public void HashCode_EqualInstancesSameHash() throws ConfigException {
+        Properties qp = new Properties();
+        qp.setProperty("group.1", "1");
+        qp.setProperty("weight.1", "1");
+        qp.setProperty("server.1", "localhost:2888:3888:participant");
+        QuorumHierarchical qh1 = new QuorumHierarchical(qp);
+        QuorumHierarchical qh2 = new QuorumHierarchical(qp);
+        assertEquals(qh1.hashCode(), qh2.hashCode(),
+                "Istanze con stessa config devono avere lo stesso hashCode");
+    }
+
+    // ========================================================================
+    // TEST SUITE T8.x – Metodo: toString()
+    // ========================================================================
+
+    // T8.1 - CE1: toString() emette correttamente server, group, weight e version
+    @Test
+    @Timeout(5)
+    public void ToString_ContainsExpectedKeys() throws ConfigException {
+        Properties qp = new Properties();
+        qp.setProperty("group.1", "1");
+        qp.setProperty("weight.1", "1");
+        qp.setProperty("server.1", "localhost:2888:3888:participant");
+        QuorumHierarchical qh = new QuorumHierarchical(qp);
+        String result = qh.toString();
+        assertTrue(result.contains("server.1"), "toString deve contenere 'server.1'");
+        assertTrue(result.contains("group.1"),  "toString deve contenere 'group.1'");
+        assertTrue(result.contains("weight.1"), "toString deve contenere 'weight.1'");
+        assertTrue(result.contains("version"),  "toString deve contenere 'version'");
+    }
+
 }
