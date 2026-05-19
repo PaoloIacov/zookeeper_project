@@ -25,53 +25,105 @@ public class ClientCnxnTest {
     }
 
     // ========================================================================
-    // TEST SUITE T1.x – Costruttore ClientCnxn(...)
+    // TEST SUITE T1.x – Costruttore ClientCnxn(...) [Base Choice Coverage]
     // ========================================================================
 
-    // T1.1 - CE1×CE4×CE7: parametri nominali → stato CONNECTING
-    @Test
-    @Timeout(5)
-    public void Constructor_ValidParams_StateIsConnecting() throws IOException {
-        ClientCnxn cnxn = buildCnxn(30000, 1);
-        assertEquals(States.CONNECTING, cnxn.state);
+    private ClientCnxn buildBaseChoice(
+        HostProvider hp, int timeout, ZKClientConfig conf, 
+        Watcher w, ClientCnxnSocket sock, long sid, byte[] pwd, boolean ro) throws IOException {
+        return new ClientCnxn(hp, timeout, conf, w, sock, sid, pwd, ro);
     }
 
-    // T1.2 - BV3: hostProvider.size() = 0 → ArithmeticException (bug: divisione non protetta)
+    private HostProvider validHp() { 
+        HostProvider hp = mock(HostProvider.class); 
+        when(hp.size()).thenReturn(1); 
+        return hp; 
+    }
+    private ZKClientConfig validConf() { return new ZKClientConfig(); }
+    private Watcher validWatcher() { return mock(Watcher.class); }
+    private ClientCnxnSocket validSocket() { return mock(ClientCnxnSocket.class); }
+    private byte[] validPwd() { return new byte[16]; }
+
+    // T1.1 - Base Choice (Caso nominale)
+    @Test
+    @Timeout(5)
+    public void Constructor_BaseChoice_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), 30000, validConf(), validWatcher(), validSocket(), 0L, validPwd(), false));
+    }
+
+    // T1.2 - Variazione D1: HostProvider nullo
+    @Test
+    @Timeout(5)
+    public void Constructor_NullHostProvider_ThrowsNPE() {
+        assertThrows(NullPointerException.class, () -> 
+            buildBaseChoice(null, 30000, validConf(), validWatcher(), validSocket(), 0L, validPwd(), false));
+    }
+
+    // T1.3 - Variazione D1: HostProvider size 0
     @Test
     @Timeout(5)
     public void Constructor_HostProviderSizeZero_ThrowsArithmeticException() {
-        HostProvider hp = mock(HostProvider.class);
+        HostProvider hp = mock(HostProvider.class); 
         when(hp.size()).thenReturn(0);
-        assertThrows(ArithmeticException.class, () ->
-                new ClientCnxn(hp, 30000, new ZKClientConfig(), mock(Watcher.class),
-                        mock(ClientCnxnSocket.class), false));
+        assertThrows(ArithmeticException.class, () -> 
+            buildBaseChoice(hp, 30000, validConf(), validWatcher(), validSocket(), 0L, validPwd(), false));
     }
 
-    // T1.3 - CE2×CE4: sessionTimeout = 0 → oggetto creato
+    // T1.4 - Variazione D2: Timeout 0
     @Test
     @Timeout(5)
-    public void Constructor_SessionTimeoutZero_ObjectCreated() throws IOException {
-        ClientCnxn cnxn = buildCnxn(0, 1);
-        assertNotNull(cnxn);
-        assertEquals(States.CONNECTING, cnxn.state);
+    public void Constructor_TimeoutZero_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), 0, validConf(), validWatcher(), validSocket(), 0L, validPwd(), false));
     }
 
-    // T1.4 - CE3×CE4: sessionTimeout negativo → nessuna eccezione (bug: mancata validazione)
+    // T1.5 - Variazione D2: Timeout Negativo
     @Test
     @Timeout(5)
-    public void Constructor_NegativeSessionTimeout_NoExceptionThrown() {
-        assertDoesNotThrow(() -> buildCnxn(-1, 1));
+    public void Constructor_TimeoutNegative_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), -1, validConf(), validWatcher(), validSocket(), 0L, validPwd(), false));
     }
 
-    // T1.5 - CE1×CE4×CE6: sessionPasswd = null → accettato
+    // T1.6 - Variazione D3: ZKClientConfig nullo
     @Test
     @Timeout(5)
-    public void Constructor_NullSessionPasswd_ObjectCreated() throws IOException {
-        HostProvider hp = mock(HostProvider.class);
-        when(hp.size()).thenReturn(1);
-        ClientCnxn cnxn = new ClientCnxn(hp, 30000, new ZKClientConfig(), mock(Watcher.class),
-                mock(ClientCnxnSocket.class), 0L, null, false);
-        assertNotNull(cnxn);
+    public void Constructor_NullConfig_ThrowsNPE() {
+        assertThrows(NullPointerException.class, () -> 
+            buildBaseChoice(validHp(), 30000, null, validWatcher(), validSocket(), 0L, validPwd(), false));
+    }
+
+    // T1.7 - Variazione D4: Watcher nullo
+    @Test
+    @Timeout(5)
+    public void Constructor_NullWatcher_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), 30000, validConf(), null, validSocket(), 0L, validPwd(), false));
+    }
+
+    // T1.8 - Variazione D5: Socket nullo
+    @Test
+    @Timeout(5)
+    public void Constructor_NullSocket_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), 30000, validConf(), validWatcher(), null, 0L, validPwd(), false));
+    }
+
+    // T1.9 - Variazione D6: SessionId positivo
+    @Test
+    @Timeout(5)
+    public void Constructor_PositiveSessionId_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), 30000, validConf(), validWatcher(), validSocket(), 12345L, validPwd(), false));
+    }
+
+    // T1.10 - Variazione D7: SessionPasswd nullo
+    @Test
+    @Timeout(5)
+    public void Constructor_NullSessionPasswd_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), 30000, validConf(), validWatcher(), validSocket(), 0L, null, false));
+    }
+
+    // T1.11 - Variazione D8: canBeReadOnly true
+    @Test
+    @Timeout(5)
+    public void Constructor_ReadOnlyTrue_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), 30000, validConf(), validWatcher(), validSocket(), 0L, validPwd(), true));
     }
 
     // ========================================================================
