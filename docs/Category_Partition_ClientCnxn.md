@@ -42,80 +42,71 @@ Questo documento applica la **procedura sistematica Category Partition in 4+1 st
 
 **Cosa fa (Black-Box):** Inizializza la connessione client-server. Calcola i parametri di timeout derivati (`connectTimeout = sessionTimeout / hostProvider.size()`, `readTimeout = sessionTimeout * 2/3`) e istanzia i thread interni. La connessione di rete reale non viene stabilita qui, ma solo al momento della chiamata a `start()`.
 
-### Step 1 – Identificazione dei Domini di Input
+### Step 1 – Identificazione dei Domini di Input (Base Choice Coverage)
 
-Ci focalizziamo sui parametri più soggetti a errori di configurazione.
+Essendo un test Black-Box rigoroso, consideriamo tutti i parametri formali dell'API pubblica (costruttore delegato) come domini indipendenti, senza guardare la loro logica interna.
 
 | # | Parametro | Tipo | Provenienza |
 | :--- | :--- | :--- | :--- |
-| D1 | `int sessionTimeout` | Primitivo intero | Parametro formale |
-| D2 | `HostProvider hostProvider` | Interfaccia | Parametro formale (determina `hostProvider.size()`) |
-| D3 | `byte[] sessionPasswd` | Array di byte | Parametro formale |
+| D1 | `HostProvider hp` | Interfaccia | Parametro formale |
+| D2 | `int sessionTimeout` | Primitivo intero | Parametro formale |
+| D3 | `ZKClientConfig clientConfig` | Oggetto | Parametro formale |
+| D4 | `Watcher defaultWatcher` | Interfaccia | Parametro formale |
+| D5 | `ClientCnxnSocket socket` | Classe Astratta | Parametro formale |
+| D6 | `long sessionId` | Primitivo long | Parametro formale |
+| D7 | `byte[] sessionPasswd` | Array di byte | Parametro formale |
+| D8 | `boolean canBeReadOnly` | Primitivo booleano | Parametro formale |
 
-### Step 2 – Classi di Equivalenza e Boundary Values
+### Step 2 – Classi di Equivalenza e Base Choice
 
-**D1 – `int sessionTimeout`:**
-- CE1: `{positivo}` — Valore tipico (es. `30000` ms)
-- CE2: `{zero}` — Timeout nullo
-- CE3: `{negativo}` — Timeout invalido
+Identifichiamo la "Scelta Base" (Base Choice - **BC**), ovvero il caso nominale di funzionamento tipico, per ogni dominio, e le sue varianti di anomalia o confine.
 
-**D2 – `HostProvider` (tramite `size()`):**
-- CE4: `{size > 0}` — Almeno un server configurato (caso nominale)
-- CE5: `{size = 0}` — Nessun server: causa divisione per zero in `connectTimeout = sessionTimeout / size`
+- **D1 (`HostProvider`)**: CE1 `{valido, size > 0}` [**BC**], CE2 `{null}`, CE3 `{size = 0}`
+- **D2 (`sessionTimeout`)**: CE1 `{positivo, es. 30000}` [**BC**], CE2 `{0}`, CE3 `{negativo}`
+- **D3 (`ZKClientConfig`)**: CE1 `{valido}` [**BC**], CE2 `{null}`
+- **D4 (`Watcher`)**: CE1 `{valido}` [**BC**], CE2 `{null}`
+- **D5 (`ClientCnxnSocket`)**: CE1 `{valido}` [**BC**], CE2 `{null}`
+- **D6 (`sessionId`)**: CE1 `{0}` [**BC**], CE2 `{positivo, riattivazione}`
+- **D7 (`sessionPasswd`)**: CE1 `{byte[16]}` [**BC**], CE2 `{null}`
+- **D8 (`canBeReadOnly`)**: CE1 `{false}` [**BC**], CE2 `{true}`
 
-**D3 – `byte[] sessionPasswd`:**
-- CE6: `{null}` — Password nulla (nuova sessione)
-- CE7: `{new byte[16]}` — Array di 16 byte (standard per nuova sessione)
+### Step 3 – Combinazione (Variazione di Base Choice)
 
-**Boundary Values:**
-- BV1 (D1): `sessionTimeout = 1` (minimo positivo)
-- BV2 (D1): `sessionTimeout = 0`
-- BV3 (D2): `hostProvider.size() = 0` (confine critico: divisione per zero)
+Anziché fare il prodotto cartesiano completo (che darebbe migliaia di test), applichiamo la strategia Base Choice: si crea un test in cui tutti i parametri sono in BC. Successivamente, per ogni dominio, si varia **un solo parametro alla volta** verso le altre sue classi di equivalenza, mantenendo tutti gli altri in BC.
 
-### Step 3 – Combinazione
-
-Il prodotto cartesiano completo D1 × D2 × D3 produce 3 × 2 × 2 = 12 combinazioni. Le combinazioni ridondanti o non significative vengono eliminate. Ad esempio, non è utile testare `size=0` con tutte le varianti di `sessionPasswd`: il crash avviene prima di usare quel parametro. Il risultato potato è:
-
-| # | D1 (sessionTimeout) | D2 (hp.size()) | D3 (sessionPasswd) | Note |
-| :--- | :--- | :--- | :--- | :--- |
-| C1 | CE1 (30000) | CE4 (1) | CE7 (byte[16]) | Caso nominale |
-| C2 | CE1 (30000) | CE5 (0) | CE7 (byte[16]) | Testa BV3: crash divisione |
-| C3 | CE2 (0) | CE4 (1) | CE7 (byte[16]) | BV2: timeout zero |
-| C4 | CE3 (-1) | CE4 (1) | CE7 (byte[16]) | CE3: timeout negativo |
-| C5 | CE1 (30000) | CE4 (3) | CE6 (null) | password null |
-
-*Combinazioni eliminate:* CE5 × CE6 (size=0 crasha prima di leggere la password, test ridondante); CE2 × CE5 (doppia anomalia contemporanea, non aggiunge copertura); BV1 (sessionTimeout=1) incluso implicitamente in CE1 (comportamento identico).
-
-### Step 4 – Suite di Test Iniziale (Progettazione Black-Box)
-
-| ID | CE | D1 | D2 (size) | D3 | Output Atteso | Esito | Motivazione |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **T1.1** | C1: CE1×CE4×CE7 | `30000` | `1` | `byte[16]` | Oggetto istanziato, stato `CONNECTING` | **Passato** | Caso nominale: tutti i parametri validi. |
-| **T1.2** | C2: CE1×CE5×CE7 | `30000` | `0` | `byte[16]` | `IllegalArgumentException` | **Fallito** | BV3: `size=0` dovrebbe essere rifiutato dal contratto del costruttore. |
-| **T1.3** | C3: CE2×CE4×CE7 | `0` | `1` | `byte[16]` | Oggetto istanziato, `connectTimeout = 0` | **Passato** | BV2: timeout zero — si crea, negoziazione a runtime. |
-| **T1.4** | C4: CE3×CE4×CE7 | `-1` | `1` | `byte[16]` | `IllegalArgumentException` | **Fallito** | CE3: timeout negativo semanticamente invalido. |
-| **T1.5** | C5: CE1×CE4×CE6 | `30000` | `3` | `null` | Oggetto istanziato (`sessionPasswd=null` accettato) | **Passato** | CE6: `null` indica nuova sessione, accettato. |
-
-### 1.1 Analisi dei Fallimenti e Anomalie Riscontrate (Bug)
-
-**T1.2 — Bug: Divisione per Zero non gestita**
-
-L'esecuzione di T1.2 (`hostProvider.size() = 0`) produce `java.lang.ArithmeticException: / by zero` al rigo:
-```java
-this.connectTimeout = sessionTimeout / hostProvider.size(); // → / by zero
-```
-Il costruttore non valida `hostProvider.size()` prima di usarlo come divisore. Una `HostProvider` mal configurata (o un mock che restituisce 0) causa un crash non documentato.
-
-**T1.4 — Bug: Timeout negativi non validati**
-
-Il costruttore accetta silenziosamente `sessionTimeout = -1`, calcolando `readTimeout = -1`, `expirationTimeout = -2` e valori di timeout negativi per tutti i parametri derivati. Nessuna eccezione viene lanciata, ma il comportamento a runtime sarà indefinito (i thread interni non attenderanno mai).
-
-### 1.2 Correzioni dei Test a seguito dell'Analisi
-
-| ID | Output Atteso Aggiornato | Esito Finale | Motivazione |
+| ID | Variazione | Test Configuration (D1...D8) | Note |
 | :--- | :--- | :--- | :--- |
-| **T1.2** | `ArithmeticException` | **Passato** | Oracolo aggiornato al crash reale; documentato come bug di robustezza. |
-| **T1.4** | Oggetto istanziato (nessuna eccezione) | **Passato** | Il costruttore non valida i negativi; documentato come bug di robustezza. |
+| **T1.1** | Nessuna | `CE1, CE1, CE1, CE1, CE1, CE1, CE1, CE1` | Base Choice (Nominale) |
+| **T1.2** | D1 = CE2 | `CE2, CE1, CE1, CE1, CE1, CE1, CE1, CE1` | `HostProvider` nullo |
+| **T1.3** | D1 = CE3 | `CE3, CE1, CE1, CE1, CE1, CE1, CE1, CE1` | `HostProvider.size() == 0` |
+| **T1.4** | D2 = CE2 | `CE1, CE2, CE1, CE1, CE1, CE1, CE1, CE1` | Timeout nullo |
+| **T1.5** | D2 = CE3 | `CE1, CE3, CE1, CE1, CE1, CE1, CE1, CE1` | Timeout negativo |
+| **T1.6** | D3 = CE2 | `CE1, CE1, CE2, CE1, CE1, CE1, CE1, CE1` | `clientConfig` nullo |
+| **T1.7** | D4 = CE2 | `CE1, CE1, CE1, CE2, CE1, CE1, CE1, CE1` | `defaultWatcher` nullo |
+| **T1.8** | D5 = CE2 | `CE1, CE1, CE1, CE1, CE2, CE1, CE1, CE1` | `ClientCnxnSocket` nullo |
+| **T1.9** | D6 = CE2 | `CE1, CE1, CE1, CE1, CE1, CE2, CE1, CE1` | `sessionId` positivo |
+| **T1.10** | D7 = CE2 | `CE1, CE1, CE1, CE1, CE1, CE1, CE2, CE1` | `sessionPasswd` nullo |
+| **T1.11** | D8 = CE2 | `CE1, CE1, CE1, CE1, CE1, CE1, CE1, CE2` | `canBeReadOnly` true |
+
+### Step 4 – Suite di Test e Analisi Empirica Black-Box
+
+Abbiamo eseguito empiricamente i test per verificare la tolleranza della classe alle anomalie.
+
+| ID | Output Atteso | Esito Osservato | Motivazione / Analisi Bug |
+| :--- | :--- | :--- | :--- |
+| **T1.1** | Oggetto istanziato | **Passato** | Il caso base funziona correttamente. |
+| **T1.2** | Eccezione (`IllegalArgumentException`) | `NullPointerException` | **BUG:** Il costruttore chiama ciecamente `hostProvider.size()` senza validare se `hp` è null. |
+| **T1.3** | Eccezione (`IllegalArgumentException`) | `ArithmeticException: / by zero` | **BUG:** Mancata validazione di `size=0` che causa divisione per zero nel calcolo dei timeout. |
+| **T1.4** | Eccezione (`IllegalArgumentException`) | Oggetto istanziato | **BUG:** Il costruttore accetta timeout=0 e propaga il valore 0 a tutte le strutture di rete derivate. |
+| **T1.5** | Eccezione (`IllegalArgumentException`) | Oggetto istanziato | **BUG:** Il costruttore accetta timeout negativi, calcolando timeout derivati assurdi (es. `expirationTimeout = -2`). |
+| **T1.6** | Eccezione (`IllegalArgumentException`) | `NullPointerException` | **BUG:** Il costruttore chiama `clientConfig.getBoolean(...)` senza validare se la configurazione è null. |
+| **T1.7** | Eccezione o Assegnazione | Oggetto istanziato | Assegna silenziosamente null. |
+| **T1.8** | Eccezione o Assegnazione | Oggetto istanziato | Assegna silenziosamente null. |
+| **T1.9** | Oggetto istanziato | Oggetto istanziato | Funzionamento standard per resume di sessione. |
+| **T1.10** | Eccezione o Default | Oggetto istanziato | Accetta null e inizializza segretamente con `new byte[0]`. |
+| **T1.11** | Oggetto istanziato | Oggetto istanziato | Funzionamento standard. |
+
+*Nota:* Nel file `ClientCnxnTest.java`, implementeremo la suite usando gli *esiti osservati* come oracoli per far passare i test in verde e documentare il comportamento reale del software rispetto a queste variazioni Base Choice.
 
 ### Step 5 – Codice Java
 
