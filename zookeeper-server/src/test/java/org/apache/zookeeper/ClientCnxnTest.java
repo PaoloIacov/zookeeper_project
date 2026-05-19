@@ -126,6 +126,13 @@ public class ClientCnxnTest {
         assertDoesNotThrow(() -> buildBaseChoice(validHp(), 30000, validConf(), validWatcher(), validSocket(), 0L, validPwd(), true));
     }
 
+    // T1.12 - Variazione D2 (Boundary Value): Timeout = 1
+    @Test
+    @Timeout(5)
+    public void Constructor_TimeoutOne_ObjectCreated() {
+        assertDoesNotThrow(() -> buildBaseChoice(validHp(), 1, validConf(), validWatcher(), validSocket(), 0L, validPwd(), false));
+    }
+
     // ========================================================================
     // TEST SUITE T2.x – isInEventThread() (static)
     // ========================================================================

@@ -62,7 +62,7 @@ Essendo un test Black-Box rigoroso, consideriamo tutti i parametri formali dell'
 Identifichiamo la "Scelta Base" (Base Choice - **BC**), ovvero il caso nominale di funzionamento tipico, per ogni dominio, e le sue varianti di anomalia o confine.
 
 - **D1 (`HostProvider`)**: CE1 `{valido, size > 0}` [**BC**], CE2 `{null}`, CE3 `{size = 0}`
-- **D2 (`sessionTimeout`)**: CE1 `{positivo, es. 30000}` [**BC**], CE2 `{0}`, CE3 `{negativo}`
+- **D2 (`sessionTimeout`)**: CE1 `{positivo, es. 30000}` [**BC**], CE2 `{0}`, CE3 `{negativo}`, CE4 `{1}` (Boundary Value)
 - **D3 (`ZKClientConfig`)**: CE1 `{valido}` [**BC**], CE2 `{null}`
 - **D4 (`Watcher`)**: CE1 `{valido}` [**BC**], CE2 `{null}`
 - **D5 (`ClientCnxnSocket`)**: CE1 `{valido}` [**BC**], CE2 `{null}`
@@ -87,6 +87,7 @@ Anziché fare il prodotto cartesiano completo (che darebbe migliaia di test), ap
 | **T1.9** | D6 = CE2 | `CE1, CE1, CE1, CE1, CE1, CE2, CE1, CE1` | `sessionId` positivo |
 | **T1.10** | D7 = CE2 | `CE1, CE1, CE1, CE1, CE1, CE1, CE2, CE1` | `sessionPasswd` nullo |
 | **T1.11** | D8 = CE2 | `CE1, CE1, CE1, CE1, CE1, CE1, CE1, CE2` | `canBeReadOnly` true |
+| **T1.12** | D2 = CE4 | `CE1, CE4, CE1, CE1, CE1, CE1, CE1, CE1` | Timeout = 1 (Boundary Value) |
 
 ### Step 4 – Suite di Test e Analisi Empirica Black-Box
 
@@ -105,6 +106,7 @@ Abbiamo eseguito empiricamente i test per verificare la tolleranza della classe 
 | **T1.9** | Oggetto istanziato | Oggetto istanziato | Funzionamento standard per resume di sessione. |
 | **T1.10** | Eccezione o Default | Oggetto istanziato | Accetta null e inizializza segretamente con `new byte[0]`. |
 | **T1.11** | Oggetto istanziato | Oggetto istanziato | Funzionamento standard. |
+| **T1.12** | Oggetto istanziato | Oggetto istanziato | Funzionamento standard sul boundary minimo positivo. |
 
 *Nota:* Nel file `ClientCnxnTest.java`, implementeremo la suite usando gli *esiti osservati* come oracoli per far passare i test in verde e documentare il comportamento reale del software rispetto a queste variazioni Base Choice.
 
