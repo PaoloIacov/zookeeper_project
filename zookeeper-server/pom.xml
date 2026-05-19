@@ -290,6 +290,7 @@
           <systemPropertyVariables>
             <build.test.dir>${project.build.directory}/surefire</build.test.dir>
             <zookeeper.DigestAuthenticationProvider.superDigest>super:D/InIHSb7yEEbrWz8b9l71RjZJU=</zookeeper.DigestAuthenticationProvider.superDigest>
+            <net.bytebuddy.experimental>true</net.bytebuddy.experimental>
           </systemPropertyVariables>
         </configuration>
       </plugin>
