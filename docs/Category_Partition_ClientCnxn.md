@@ -481,9 +481,21 @@ public void Packet_ToString_StripsNewlines() {
 ### 2. Esclusione dei Metodi Network-Bound
 `submitRequest()`, `close()`, `disconnect()`, `start()` richiedono thread attivi e connessione reale. Sono candidati per Integration Tests, non per Unit Tests con Category Partition.
 
-### 3. Strategia con Mockito
-Per costruire un'istanza di `ClientCnxn` nei test, è necessario mockare:
-- `HostProvider` (interfaccia) → `mock(HostProvider.class)`
-- `ClientCnxnSocket` (classe astratta) → `mock(ClientCnxnSocket.class)`
-- `Watcher` (interfaccia) → `mock(Watcher.class)`
-- `ZKClientConfig` (classe concreta) → `new ZKClientConfig()`
+### 3. Strategia con Mockito (Scelte Concettuali)
+
+L'uso di Mockito in un test di natura Black-Box (Category Partition) rappresenta un'eccezione motivata dall'alto accoppiamento infrastrutturale della classe.
+
+**Perché usiamo Mockito?**
+Se usassimo istanze reali per i parametri del costruttore di `ClientCnxn`, finiremmo per fare *Integration Testing*: il codice proverebbe ad aprire socket di rete reali, avviare thread e cercare un server ZooKeeper, portando a test lenti, instabili (flaky) e dipendenti dall'ambiente. Il nostro obiettivo nel *Unit Testing* è isolare `ClientCnxn` per testare solo la sua logica interna (es. calcolo dei timeout, gestione dello stato, validazione input).
+
+**Come lo utilizziamo (Stubbing vs Mocking):**
+In questa suite, usiamo Mockito quasi esclusivamente per fare **Stubbing** (fornire risposte predefinite) e non per fare *Mocking* (verificare interazioni comportamentali tramite `verify()`). 
+
+Nello specifico, per costruire un'istanza reale di `ClientCnxn` nei test, passiamo:
+- `HostProvider` (interfaccia): Usiamo `mock(HostProvider.class)` per controllarne il comportamento. In particolare, facciamo stubbing di `when(hp.size()).thenReturn(...)` per guidare il partizionamento del dominio e testare il calcolo di `connectTimeout`. Questo ci ha permesso di isolare il bug della divisione per zero.
+- `ClientCnxnSocket` (classe astratta): Usiamo `mock(ClientCnxnSocket.class)` per disinnescare la logica di basso livello (NIO/Netty). Non vogliamo che provi a inviare byte reali.
+- `Watcher` (interfaccia): Forniamo un dummy `mock(Watcher.class)` solo per soddisfare la firma del costruttore, poiché i nostri test non innescano eventi di watch.
+- `ZKClientConfig` (classe concreta): Usiamo un'istanza reale `new ZKClientConfig()` perché è un semplice contenitore di configurazioni in-memory, innocuo da istanziare.
+
+**Uso della Reflection come Oracolo Black-Box:**
+Dal momento che stiamo testando metodi (come `addAuthInfo`) che non restituiscono valori ma alterano lo stato interno dell'oggetto (es. accodano elementi nella coda `authInfo`), e non potendo verificare interazioni di rete, utilizziamo la Java Reflection (`Field.setAccessible(true)`) nei test JUnit. Questo ci funge da "oracolo", permettendoci di ispezionare le variabili package-private (come `state`, `xid`, `authInfo`) per validare che l'operazione di input (la "causa") abbia prodotto il corretto mutamento di stato (l'"effetto").
