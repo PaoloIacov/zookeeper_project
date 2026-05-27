@@ -89,26 +89,31 @@ Anziché fare il prodotto cartesiano completo (che darebbe migliaia di test), ap
 | **T1.11** | D8 = CE2 | `CE1, CE1, CE1, CE1, CE1, CE1, CE1, CE2` | `canBeReadOnly` true |
 | **T1.12** | D2 = CE4 | `CE1, CE4, CE1, CE1, CE1, CE1, CE1, CE1` | Timeout = 1 (Boundary Value) |
 
-### Step 4 – Suite di Test e Analisi Empirica Black-Box
+### Step 4 – Eliminazione Combinazioni Non Ammissibili e Suite di Test Finale
 
-Abbiamo eseguito empiricamente i test per verificare la tolleranza della classe alle anomalie.
+**Nota Metodologica sulla Selezione (Base Choice Coverage):**
+Per evitare l'esplosione combinatoria e il mascheramento degli errori (*Single Fault Assumption*), la suite non implementa il prodotto cartesiano completo. Si applica il criterio della **Base Choice Coverage**:
+- La combinazione **T1.1** (tutti i parametri nominali) è la **Base Choice**: rappresenta il caso d'uso tipico di un client ZooKeeper che si connette a un cluster già attivo.
+- Le combinazioni successive (T1.2–T1.12) variano **una sola dimensione alla volta** rispetto alla Base Choice, permettendo di isolare i comportamenti anomali.
 
-| ID | Output Atteso | Esito Osservato | Motivazione / Analisi Bug |
-| :--- | :--- | :--- | :--- |
-| **T1.1** | Oggetto istanziato | **Passato** | Il caso base funziona correttamente. |
-| **T1.2** | Eccezione (`IllegalArgumentException`) | `NullPointerException` | **BUG:** Il costruttore chiama ciecamente `hostProvider.size()` senza validare se `hp` è null. |
-| **T1.3** | Eccezione (`IllegalArgumentException`) | `ArithmeticException: / by zero` | **BUG:** Mancata validazione di `size=0` che causa divisione per zero nel calcolo dei timeout. |
-| **T1.4** | Eccezione (`IllegalArgumentException`) | Oggetto istanziato | **BUG:** Il costruttore accetta timeout=0 e propaga il valore 0 a tutte le strutture di rete derivate. |
-| **T1.5** | Eccezione (`IllegalArgumentException`) | Oggetto istanziato | **BUG:** Il costruttore accetta timeout negativi, calcolando timeout derivati assurdi (es. `expirationTimeout = -2`). |
-| **T1.6** | Eccezione (`IllegalArgumentException`) | `NullPointerException` | **BUG:** Il costruttore chiama `clientConfig.getBoolean(...)` senza validare se la configurazione è null. |
-| **T1.7** | Eccezione o Assegnazione | Oggetto istanziato | Assegna silenziosamente null. |
-| **T1.8** | Eccezione o Assegnazione | Oggetto istanziato | Assegna silenziosamente null. |
-| **T1.9** | Oggetto istanziato | Oggetto istanziato | Funzionamento standard per resume di sessione. |
-| **T1.10** | Eccezione o Default | Oggetto istanziato | Accetta null e inizializza segretamente con `new byte[0]`. |
-| **T1.11** | Oggetto istanziato | Oggetto istanziato | Funzionamento standard. |
-| **T1.12** | Oggetto istanziato | Oggetto istanziato | Funzionamento standard sul boundary minimo positivo. |
+I test T1.2 e T1.6 non ammettono le variazioni sulle dimensioni successive in quanto l'eccezione viene lanciata prima di leggere gli altri parametri.
 
-*Nota:* Nel file `ClientCnxnTest.java`, implementeremo la suite usando gli *esiti osservati* come oracoli per far passare i test in verde e documentare il comportamento reale del software rispetto a queste variazioni Base Choice.
+| ID | D1 (HostProvider) | D2 (sessionTimeout) | D3 (ZKClientConfig) | D4 (Watcher) | D5 (Socket) | D6 (sessionId) | D7 (sessionPasswd) | D8 (canBeReadOnly) | Output Atteso | Esito | Motivazione |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **T1.1** | Valido (size=1) | 30000 | Valido | Valido | Valido | 0 | byte[16] | false | Oggetto istanziato | **Passato** | Base Choice: tutti i parametri nominali, verificato il caso d'uso tipico. |
+| **T1.2** | **null** | 30000 | Valido | Valido | Valido | 0 | byte[16] | false | `NullPointerException` | **Passato** | **BUG:** Il costruttore non valida il null. Il test si aspetta l'NPE per documentare il crash. |
+| **T1.3** | **size=0** | 30000 | Valido | Valido | Valido | 0 | byte[16] | false | `ArithmeticException` | **Passato** | **BUG:** Mancata validazione di `size=0`. Il test si aspetta la divisione per zero. |
+| **T1.4** | Valido (size=1) | **0** | Valido | Valido | Valido | 0 | byte[16] | false | Oggetto istanziato | **Passato** | **BUG:** Timeout zero non validato. Il test si aspetta l'istanza creata (anziché eccezione). |
+| **T1.5** | Valido (size=1) | **-1** | Valido | Valido | Valido | 0 | byte[16] | false | Oggetto istanziato | **Passato** | **BUG:** Timeout negativo non validato. Il test si aspetta l'istanza creata (anziché eccezione). |
+| **T1.6** | Valido (size=1) | 30000 | **null** | Valido | Valido | 0 | byte[16] | false | `NullPointerException` | **Passato** | **BUG:** Mancata validazione config. Il test si aspetta l'NPE. |
+| **T1.7** | Valido (size=1) | 30000 | Valido | **null** | Valido | 0 | byte[16] | false | Oggetto istanziato | **Passato** | Il watcher null viene accettato; il test si aspetta l'istanza creata. |
+| **T1.8** | Valido (size=1) | 30000 | Valido | Valido | **null** | 0 | byte[16] | false | Oggetto istanziato | **Passato** | Il socket null viene accettato; il test si aspetta l'istanza creata. |
+| **T1.9** | Valido (size=1) | 30000 | Valido | Valido | Valido | **12345L** | byte[16] | false | Oggetto istanziato | **Passato** | sessionId positivo: ripristino di sessione preesistente. |
+| **T1.10** | Valido (size=1) | 30000 | Valido | Valido | Valido | 0 | **null** | false | Oggetto istanziato | **Passato** | sessionPasswd null accettato; il test si aspetta l'istanza creata. |
+| **T1.11** | Valido (size=1) | 30000 | Valido | Valido | Valido | 0 | byte[16] | **true** | Oggetto istanziato | **Passato** | canBeReadOnly=true: modalità read-only in caso di partizionamento di rete, supportata. |
+| **T1.12** | Valido (size=1) | **1** | Valido | Valido | Valido | 0 | byte[16] | false | Oggetto istanziato | **Passato** | BVA: timeout al valore positivo minimo, `connectTimeout = 1 / 1 = 1 ms`. |
+
+*Nota:* Nel file `ClientCnxnTest.java`, la suite usa gli *esiti osservati* come oracoli per documentare il comportamento reale del software e i bug di robustezza individuati.
 
 ### Step 5 – Codice Java
 
