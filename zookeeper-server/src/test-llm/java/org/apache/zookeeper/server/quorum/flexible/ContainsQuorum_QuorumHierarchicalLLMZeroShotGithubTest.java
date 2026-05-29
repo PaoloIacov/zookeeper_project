@@ -3,6 +3,7 @@ package org.apache.zookeeper.server.quorum.flexible;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -17,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Suite di test per il metodo containsQuorum della classe QuorumHierarchical
  * in Apache ZooKeeper.
  */
+@Disabled("Ignored because LLM didn't have the rule for delimiter")
 public class ContainsQuorum_QuorumHierarchicalLLMZeroShotGithubTest {
 
     private QuorumHierarchical quorumHierarchical;

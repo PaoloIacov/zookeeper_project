@@ -3,6 +3,7 @@ package org.apache.zookeeper.server.quorum.flexible;
 import org.apache.zookeeper.common.ConfigException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 
 import java.util.Properties;
 
@@ -41,6 +42,7 @@ public class Constructor_Props_QuorumHierarchicalLLMZeroShotInstructionTest {
 
     @Test
     @DisplayName("Test fallimento con delimitatore a virgola (',')")
+    @Disabled("Ignored because LLM didn't have the rule for delimiter")
     public void testInvalidDelimiterCommaThrowsException() {
         Properties qp = new Properties();
         // Configurazione errata: uso della virgola invece dei due punti

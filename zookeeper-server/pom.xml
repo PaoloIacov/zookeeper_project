@@ -247,6 +247,33 @@
               </sources>
             </configuration>
           </execution>
+          <!-- Source root aggiuntive per i test generati (LLM e Randoop).
+               Mantengono lo stesso package Java della classe target per preservare
+               la visibilità sui membri package-private (es. ClientCnxnSocket, Packet). -->
+          <execution>
+            <id>add-test-llm-source</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>add-test-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>src/test-llm/java</source>
+              </sources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>add-test-randoop-source</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>add-test-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>src/test-randoop/java</source>
+              </sources>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
       <plugin>

@@ -9,21 +9,30 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
     - name: Set up JDK 11
       uses: actions/setup-java@v4
       with:
-        java-version: '11'
         distribution: 'temurin'
-        cache: 'maven'
-        
-    - name: Build with Maven
-      # Ignoriamo i check di stile (checkstyle, spotbugs, rat) che potrebbero fallire per i file di progetto
+        java-version: '11'
+
+    - name: Cache Maven packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven
+
+    - name: Build and Install 
       run: mvn -B clean install -DskipTests -Dcheckstyle.skip=true -Dspotbugs.skip=true -Drat.skip=true
-      
-    - name: Run Tests
-      # Eseguiamo i test separatamente per chiarezza. 
-      # -DfailIfNoTests=false evita errori se non ci sono test in alcuni moduli
-      run: mvn -B verify -Dcheckstyle.skip=true -Dspotbugs.skip=true -Drat.skip=true -DfailIfNoTests=false
+
+    - name: Run Unit Tests 
+      run: mvn -B test -Dcheckstyle.skip=true -Dspotbugs.skip=true -Drat.skip=true -DfailIfNoTests=false
+
+    - name: Run Integration Tests 
+      run: mvn -B verify -DskipUnitTests -Dcheckstyle.skip=true -Dspotbugs.skip=true -Drat.skip=true -DfailIfNoTests=false
