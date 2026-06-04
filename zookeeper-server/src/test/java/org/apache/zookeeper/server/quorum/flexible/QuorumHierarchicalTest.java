@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Timeout;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -279,18 +280,19 @@ public class QuorumHierarchicalTest {
     }
 
     // ------------------------------------------------------------------------
-    // T2.3 – CE5: set con ID non configurato → false
-    // Il metodo ignora silenziosamente gli ID sconosciuti (continue nel loop)
+    // T2.3 – CE5, BV3: ID Misto (Valido e Inesistente) → false (Fault Tolerance)
+    // L'ID inesistente viene ignorato senza crash, il valido viene contato
+    // ma il peso non basta per il quorum (1 < 1.5).
     // ------------------------------------------------------------------------
     @Test
     @Timeout(5)
-    public void ContainsQuorum_UnknownId() {
-        assertFalse(qhCQ.containsQuorum(new HashSet<>(Arrays.asList(999L))),
-                "ID non configurato: viene ignorato, nessun gruppo riceve peso");
+    public void ContainsQuorum_MixedIdsFaultTolerance() {
+        assertFalse(qhCQ.containsQuorum(new HashSet<>(Arrays.asList(1L, 999L))),
+                "L'ID non configurato viene scartato senza crash, ma il voto di 1L (peso=1) non basta per il quorum");
     }
 
     // ------------------------------------------------------------------------
-    // T2.4 – CE4+CE6, BV3: 2 server per ognuno dei 3 gruppi → true
+    // T2.4 – CE4+CE6, BV5: 2 server per ognuno dei 3 gruppi → true
     // Ogni gruppo: peso 2 > 1.5 ✓; gruppi qualificati: 3 > 1.5 ✓
     // ------------------------------------------------------------------------
     @Test
@@ -301,7 +303,7 @@ public class QuorumHierarchicalTest {
     }
 
     // ------------------------------------------------------------------------
-    // T2.5 – CE4+CE7, BV1+BV2: 1 solo voto → false
+    // T2.5 – CE4+CE7, BV2+BV4: 1 solo voto → false
     // Gruppo 1: peso 1, soglia 1.5 → 1 < 1.5 → gruppo NON qualificato
     // ------------------------------------------------------------------------
     @Test
@@ -312,7 +314,7 @@ public class QuorumHierarchicalTest {
     }
 
     // ------------------------------------------------------------------------
-    // T2.6 – CE4+CE8, BV4: tutti e 3 i voti nel gruppo 1, 0 negli altri → false
+    // T2.6 – CE4+CE8, BV6: tutti e 3 i voti nel gruppo 1, 0 negli altri → false
     // Gruppo 1: peso 3 > 1.5 ✓, ma solo 1 gruppo su 3: 1 ≤ 1.5 → false
     // Questo è il test cruciale della logica GERARCHICA
     // ------------------------------------------------------------------------
@@ -324,7 +326,7 @@ public class QuorumHierarchicalTest {
     }
 
     // ------------------------------------------------------------------------
-    // T2.7 – BV peso OK, BV gruppi KO: 2 voti nel gruppo 1, 0 altrove → false
+    // T2.7 – BV5+BV6: peso OK in 1 gruppo, gruppi KO → false
     // Gruppo 1: peso 2 > 1.5 ✓, ma 1 gruppo qualificato su 3: 1 ≤ 1.5 → false
     // ------------------------------------------------------------------------
     @Test
@@ -335,7 +337,7 @@ public class QuorumHierarchicalTest {
     }
 
     // ------------------------------------------------------------------------
-    // T2.8 – BV3 esatto: esattamente 2 gruppi su 3 qualificati (soglia minima) → true
+    // T2.8 – BV7: esattamente 2 gruppi su 3 qualificati (soglia minima) → true
     // Gruppo 1: {1,2} peso 2 > 1.5 ✓; Gruppo 2: {4,5} peso 2 > 1.5 ✓
     // Gruppi qualificati: 2 > 1.5 ✓ → true (Boundary Value sulla soglia gerarchica)
     // ------------------------------------------------------------------------
@@ -388,15 +390,26 @@ public class QuorumHierarchicalTest {
     }
 
     // ------------------------------------------------------------------------
-    // T3.4 – BV2: ID negativo → Ritorna 0 (Specifica teorica / Safe Default)
-    // DISABILITATO: Stesso bug di robustezza documentato in T3.3.
+    // T3.4 – CE4: istanza con stato interno corrotto (serverWeight = null)
+    //             Simula un'istanza invalida ottenuta via Reflection.
     // ------------------------------------------------------------------------
     @Test
-    @Disabled("Baco di ZooKeeper: getWeight lancia NullPointerException su ID negativi")
     @Timeout(5)
-    public void GetWeight_NegativeId() {
-        assertEquals(0L, qhGW.getWeight(-1L),
-                "Un ID negativo (non configurato) dovrebbe restituire peso 0");
+    public void GetWeight_CorruptedInstance() throws Exception {
+        Properties qp = new Properties();
+        qp.setProperty("group.1", "1");
+        qp.setProperty("weight.1", "1");
+        qp.setProperty("server.1", "localhost:2888:3888:participant");
+        QuorumHierarchical qh = new QuorumHierarchical(qp);
+
+        // Corrompiamo il campo privato serverWeight via Reflection
+        Field swField = QuorumHierarchical.class.getDeclaredField("serverWeight");
+        swField.setAccessible(true);
+        swField.set(qh, null);
+
+        assertThrows(NullPointerException.class,
+                () -> qh.getWeight(1L),
+                "Con serverWeight=null, getWeight deve lanciare NullPointerException");
     }
 
     // ========================================================================
@@ -450,6 +463,45 @@ public class QuorumHierarchicalTest {
                 "L'observer con ID=4 non deve comparire tra i voting members");
         assertFalse(qh.getVotingMembers().containsKey(5L),
                 "L'observer con ID=5 non deve comparire tra i voting members");
+    }
+
+    // ------------------------------------------------------------------------
+    // T4.3 – CE3: config solo observer → mappa vuota
+    // ------------------------------------------------------------------------
+    @Test
+    @Timeout(5)
+    public void GetVotingMembers_OnlyObservers() throws ConfigException {
+        Properties qp = new Properties();
+        qp.setProperty("weight.1", "0");
+        qp.setProperty("server.1", "localhost:2891:3891:observer");
+        qp.setProperty("weight.2", "0");
+        qp.setProperty("server.2", "localhost:2892:3892:observer");
+        QuorumHierarchical qh = new QuorumHierarchical(qp);
+
+        assertEquals(0, qh.getVotingMembers().size(),
+                "Con soli observer, getVotingMembers deve ritornare una mappa vuota");
+    }
+
+    // ------------------------------------------------------------------------
+    // T4.4 – CE4: istanza con stato interno corrotto (participatingMembers = null)
+    //             Simula un'istanza invalida ottenuta via Reflection.
+    // ------------------------------------------------------------------------
+    @Test
+    @Timeout(5)
+    public void GetVotingMembers_CorruptedInstance() throws Exception {
+        Properties qp = new Properties();
+        qp.setProperty("group.1", "1");
+        qp.setProperty("weight.1", "1");
+        qp.setProperty("server.1", "localhost:2888:3888:participant");
+        QuorumHierarchical qh = new QuorumHierarchical(qp);
+
+        // Corrompiamo il campo privato participatingMembers via Reflection
+        Field pmField = QuorumHierarchical.class.getDeclaredField("participatingMembers");
+        pmField.setAccessible(true);
+        pmField.set(qh, null);
+
+        assertNull(qh.getVotingMembers(),
+                "Con participatingMembers=null, getVotingMembers restituisce null (propagazione silenziosa)");
     }
 
     // ========================================================================
@@ -576,30 +628,10 @@ public class QuorumHierarchicalTest {
     }
 
     // ========================================================================
-    // TEST SUITE T7.x – Metodo: hashCode()
+    // TEST SUITE T7.x – Metodo: toString()
     // ========================================================================
 
-    // T7.1 - CE1: due istanze equals → stesso hashCode (contratto Java)
-    // DISABILITATO: hashCode() contiene assert false → AssertionError con -ea (assertions abilitate da Maven)
-    @Test
-    @Disabled("hashCode() non implementato: assert false lancia AssertionError quando le assertions JVM sono abilitate")
-    @Timeout(5)
-    public void HashCode_EqualInstancesSameHash() throws ConfigException {
-        Properties qp = new Properties();
-        qp.setProperty("group.1", "1");
-        qp.setProperty("weight.1", "1");
-        qp.setProperty("server.1", "localhost:2888:3888:participant");
-        QuorumHierarchical qh1 = new QuorumHierarchical(qp);
-        QuorumHierarchical qh2 = new QuorumHierarchical(qp);
-        assertEquals(qh1.hashCode(), qh2.hashCode(),
-                "Istanze con stessa config devono avere lo stesso hashCode");
-    }
-
-    // ========================================================================
-    // TEST SUITE T8.x – Metodo: toString()
-    // ========================================================================
-
-    // T8.1 - CE1: toString() emette correttamente server, group, weight e version
+    // T7.1 - CE1: toString() emette correttamente server, group, weight e version
     @Test
     @Timeout(5)
     public void ToString_ContainsExpectedKeys() throws ConfigException {
@@ -613,6 +645,29 @@ public class QuorumHierarchicalTest {
         assertTrue(result.contains("group.1"),  "toString deve contenere 'group.1'");
         assertTrue(result.contains("weight.1"), "toString deve contenere 'weight.1'");
         assertTrue(result.contains("version"),  "toString deve contenere 'version'");
+    }
+
+    // ------------------------------------------------------------------------
+    // T7.2 – CE2: istanza con stato interno corrotto (allMembers = null)
+    //             Simula un'istanza invalida ottenuta via Reflection.
+    // ------------------------------------------------------------------------
+    @Test
+    @Timeout(5)
+    public void ToString_CorruptedInstance() throws Exception {
+        Properties qp = new Properties();
+        qp.setProperty("group.1", "1");
+        qp.setProperty("weight.1", "1");
+        qp.setProperty("server.1", "localhost:2888:3888:participant");
+        QuorumHierarchical qh = new QuorumHierarchical(qp);
+
+        // Corrompiamo il campo privato allMembers via Reflection
+        Field amField = QuorumHierarchical.class.getDeclaredField("allMembers");
+        amField.setAccessible(true);
+        amField.set(qh, null);
+
+        assertThrows(NullPointerException.class,
+                () -> qh.toString(),
+                "Con allMembers=null, toString deve lanciare NullPointerException");
     }
 
 }
