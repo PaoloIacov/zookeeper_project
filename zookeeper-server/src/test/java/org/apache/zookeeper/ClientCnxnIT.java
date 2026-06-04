@@ -18,7 +18,7 @@ import org.apache.zookeeper.proto.RequestHeader;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.Test;
 
- */
+
 public class ClientCnxnIT {
 
     // ========================================================================
@@ -144,7 +144,6 @@ public class ClientCnxnIT {
 
     /**
      * Un pacchetto con XID=42 è nella pendingQueue, ma la risposta ha XID=99. 
-     * Questo rappresenta una violazione del protocollo di ordinamento.
      *
      * Verifica: readResponse() lancia IOException e setta replyHeader.err = CONNECTIONLOSS.
      */
@@ -176,7 +175,7 @@ public class ClientCnxnIT {
 
     /**
      * Il server invia una risposta con un XID "normale" (non ping, non notifica), 
-     * ma la pendingQueue è vuota. Rappresenta uno stato inconsistente del protocollo.
+     * ma la pendingQueue è vuota.
      *
      * Verifica: readResponse() lancia IOException con messaggio "Nothing in the queue".
      */
