@@ -32,7 +32,12 @@ public class ClientCnxnIT {
         HostProvider hp = mock(HostProvider.class);
         when(hp.size()).thenReturn(1);
         ClientCnxnSocket socket = mock(ClientCnxnSocket.class);
-        return new ClientCnxn(hp, 30000, new ZKClientConfig(), mock(Watcher.class), socket, false);
+        
+        // Disabilitiamo SASL per evitare che il client tenti di leggere token di sicurezza (EOFException)
+        ZKClientConfig config = new ZKClientConfig();
+        config.setProperty(ZKClientConfig.ENABLE_CLIENT_SASL_KEY, "false");
+        
+        return new ClientCnxn(hp, 30000, config, mock(Watcher.class), socket, false);
     }
 
     /**
@@ -192,7 +197,7 @@ public class ClientCnxnIT {
         // Il server invia una risposta con XID normale (non è un ping/notifica)
         ByteBuffer orphanResponse = buildServerResponse(42, 0, 100L);
 
-        // readResponse deve lanciare IOException
+        // readResponse deve lanciare IOException per la coda vuota
         IOException ex = assertThrows(IOException.class,
                 () -> sendThread.readResponse(orphanResponse),
                 "Risposta senza pacchetto in coda deve causare IOException");

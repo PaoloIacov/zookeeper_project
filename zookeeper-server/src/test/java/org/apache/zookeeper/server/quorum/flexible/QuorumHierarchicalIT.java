@@ -146,12 +146,13 @@ public class QuorumHierarchicalIT {
         SyncedLearnerTracker tracker = new SyncedLearnerTracker();
         tracker.addQuorumVerifier(qh);
 
-        // Maggioranza in entrambi i gruppi: {1,2} nel gruppo 1, {4} nel gruppo 2
+        // Maggioranza in entrambi i gruppi: {1,2} nel gruppo 1, {4,5} nel gruppo 2 (maggioranza di 2 è 2)
         tracker.addAck(1L);
         tracker.addAck(2L);
         tracker.addAck(4L);
+        tracker.addAck(5L);
 
-        // Il Top delega al Down: qh.containsQuorum({1,2,4}) → true
+        // Il Top delega al Down: qh.containsQuorum({1,2,4,5}) → true
         assertTrue(tracker.hasAllQuorums(),
                 "Con la maggioranza in entrambi i gruppi, il quorum deve essere raggiunto");
     }
