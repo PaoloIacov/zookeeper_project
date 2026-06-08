@@ -13,6 +13,10 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Suite di test per la classe QuorumHierarchical di Apache ZooKeeper.
  * Verifica la logica dei quorum gerarchici basati su gruppi e pesi.
+ *
+ * Iterazione V4 (Bug-Aware): aggiunta delle properties server.X per evitare
+ * la NullPointerException in computeGroupWeight(), bug scoperto durante
+ * la generazione dei test per getWeight (cfr. QH_ZeroShot.md, Iterazione 2).
  */
 public class ContainsQuorum_QuorumHierarchicalLLMZeroShotInstructionTest {
 
@@ -29,6 +33,13 @@ public class ContainsQuorum_QuorumHierarchicalLLMZeroShotInstructionTest {
         properties.setProperty("group.1", "1:2:3");
         properties.setProperty("group.2", "4:5:6");
         properties.setProperty("group.3", "7:8:9");
+
+        // REGOLA AGGIUNTIVA (V4 Bug-Aware): definire server.X per ogni server
+        // dichiarato nei gruppi, altrimenti il costruttore non popola allMembers
+        // e computeGroupWeight() lancia NullPointerException (bug del SUT).
+        for (int i = 1; i <= 9; i++) {
+            properties.setProperty("server." + i, "localhost:" + (2780 + i * 10) + ":" + (3780 + i * 10));
+        }
 
         // Assegnazione del peso 1 per ogni server
         for (int i = 1; i <= 9; i++) {

@@ -87,7 +87,7 @@ public class ClientCnxnIT {
      */
     @Test
     @Timeout(5)
-    public void IT01_HappyPath_QueueAndReadResponse_ReplyHeaderUpdated() throws Exception {
+    public void HappyPath_QueueAndReadResponse_ReplyHeaderUpdated() throws Exception {
         ClientCnxn cnxn = buildCnxn();
         ClientCnxn.SendThread sendThread = getSendThread(cnxn);
         Queue<ClientCnxn.Packet> pendingQueue = getPendingQueue(cnxn);
@@ -130,7 +130,7 @@ public class ClientCnxnIT {
      */
     @Test
     @Timeout(5)
-    public void IT02_PingResponse_PendingQueueUntouched() throws Exception {
+    public void PingResponse_PendingQueueUntouched() throws Exception {
         ClientCnxn cnxn = buildCnxn();
         ClientCnxn.SendThread sendThread = getSendThread(cnxn);
         Queue<ClientCnxn.Packet> pendingQueue = getPendingQueue(cnxn);
