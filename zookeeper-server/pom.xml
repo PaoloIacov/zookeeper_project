@@ -33,6 +33,12 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.evosuite</groupId>
+      <artifactId>evosuite-standalone-runtime</artifactId>
+      <version>1.1.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>com.github.spotbugs</groupId>
       <artifactId>spotbugs-annotations</artifactId>
       <scope>provided</scope>
@@ -271,6 +277,18 @@
             <configuration>
               <sources>
                 <source>src/test-randoop/java</source>
+              </sources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>add-test-evosuite-source</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>add-test-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>src/test-evosuite/java</source>
               </sources>
             </configuration>
           </execution>
