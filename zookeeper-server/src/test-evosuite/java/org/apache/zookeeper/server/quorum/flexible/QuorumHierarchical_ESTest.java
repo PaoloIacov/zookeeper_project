@@ -20,7 +20,7 @@ import org.evosuite.runtime.testdata.EvoSuiteFile;
 import org.evosuite.runtime.testdata.FileSystemHandling;
 import org.junit.runner.RunWith;
 
-@RunWith(EvoRunner.class) @EvoRunnerParameters(mockJVMNonDeterminism = true, useVFS = true, useVNET = true) 
+// @RunWith(EvoRunner.class) @EvoRunnerParameters(mockJVMNonDeterminism = true, useVFS = true, useVNET = true) 
 public class QuorumHierarchical_ESTest extends QuorumHierarchical_ESTest_scaffolding {
 
   @Test(timeout = 4000)

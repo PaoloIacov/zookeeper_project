@@ -227,6 +227,25 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.10</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
         <executions>
@@ -349,6 +368,7 @@
         <configuration>
           <includes>
             <include>**/*Test.java</include>
+            <include>**/*RandoopTest*.java</include>
           </includes>
           <excludes>
             <!-- Randoop Error-Revealing Tests: test che rilevano bug nel SUT (System Under Test).
@@ -363,7 +383,7 @@
           </excludes>
           <forkCount>${surefire-forkcount}</forkCount>
           <reuseForks>false</reuseForks>
-          <argLine>-Xmx512m -Dtest.junit.threads=${surefire-forkcount} -Dzookeeper.junit.threadid=${surefire.forkNumber} -javaagent:${org.jmockit:jmockit:jar}</argLine>
+          <argLine>@{argLine} -Xmx512m -Dtest.junit.threads=${surefire-forkcount} -Dzookeeper.junit.threadid=${surefire.forkNumber} -javaagent:${org.jmockit:jmockit:jar}</argLine>
           <basedir>${project.basedir}</basedir>
           <systemPropertyVariables>
             <build.test.dir>${project.build.directory}/surefire</build.test.dir>
@@ -428,6 +448,56 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <!-- PIT Mutation Testing: Fase 4.b del progetto.
+           Esegue mutazioni sul bytecode delle classi target e verifica
+           se i test manuali riescono a rilevare i bug artificiali.
+           Lanciare con: mvn pitest:mutationCoverage -->
+      <plugin>
+        <groupId>org.pitest</groupId>
+        <artifactId>pitest-maven</artifactId>
+        <version>1.15.3</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-junit5-plugin</artifactId>
+            <version>1.2.1</version>
+          </dependency>
+        </dependencies>
+        <configuration>
+          <targetClasses>
+            <param>org.apache.zookeeper.server.quorum.flexible.QuorumHierarchical</param>
+            <param>org.apache.zookeeper.ClientCnxn</param>
+          </targetClasses>
+          <targetTests>
+            <param>org.apache.zookeeper.server.quorum.flexible.QuorumHierarchicalTest</param>
+            <param>org.apache.zookeeper.ClientCnxnTest</param>
+          </targetTests>
+          <mutators>
+            <mutator>DEFAULTS</mutator>
+          </mutators>
+          <outputFormats>
+            <outputFormat>HTML</outputFormat>
+            <outputFormat>XML</outputFormat>
+          </outputFormats>
+          <timestampedReports>false</timestampedReports>
+          <threads>4</threads>
+          <jvmArgs>
+            <jvmArg>--add-opens</jvmArg>
+            <jvmArg>java.base/java.lang=ALL-UNNAMED</jvmArg>
+            <jvmArg>--add-opens</jvmArg>
+            <jvmArg>java.base/java.util=ALL-UNNAMED</jvmArg>
+            <jvmArg>--add-opens</jvmArg>
+            <jvmArg>java.base/java.lang.reflect=ALL-UNNAMED</jvmArg>
+            <jvmArg>--add-opens</jvmArg>
+            <jvmArg>java.base/java.io=ALL-UNNAMED</jvmArg>
+          </jvmArgs>
+          <useClasspathJar>true</useClasspathJar>
+          <excludedClasses>
+            <param>mockit.*</param>
+          </excludedClasses>
+        </configuration>
       </plugin>
      </plugins>
   </build>

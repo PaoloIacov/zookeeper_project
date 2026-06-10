@@ -12,25 +12,14 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.Test;
 
 /**
- * Test di integrazione per QuorumHierarchical.
- *
- * Verifichiamo che SyncedLearnerTracker (il chiamante) reagisca correttamente 
- * ai verdetti di quorum di QuorumHierarchical. Sfruttiamo il polimorfismo 
- * dell'interfaccia QuorumVerifier per iniettare l'implementazione concreta.
+ * Integration test per QuorumHierarchical.
+ * Verifica l'interazione tra SyncedLearnerTracker e QuorumHierarchical.
  */
 public class QuorumHierarchicalIT {
 
-    // ========================================================================
-    // Helper: costruzione di un QuorumHierarchical reale da Properties
-    // ========================================================================
+    // --- Helper ---
 
-    /**
-     * Crea un cluster gerarchico a 3 nodi in 1 gruppo.
-     * Quorum richiesto: maggioranza del gruppo (2 su 3).
-     *
-     *   group.1=1:2:3
-     *   weight.1=1, weight.2=1, weight.3=1
-     */
+    // Cluster a 3 nodi in 1 gruppo. Quorum: 2 su 3.
     private QuorumHierarchical buildThreeNodeCluster() throws Exception {
         Properties props = new Properties();
         props.setProperty("group.1", "1:2:3");
@@ -43,12 +32,7 @@ public class QuorumHierarchicalIT {
         return new QuorumHierarchical(props);
     }
 
-    /**
-     * Crea un cluster gerarchico a 5 nodi in 2 gruppi.
-     * Gruppo 1: server 1,2,3
-     * Gruppo 2: server 4,5
-     * Quorum richiesto: maggioranza dei gruppi (entrambi, essendo 2)
-     */
+    // Cluster a 5 nodi in 2 gruppi. Quorum: maggioranza in entrambi i gruppi.
     private QuorumHierarchical buildTwoGroupCluster() throws Exception {
         Properties props = new Properties();
         props.setProperty("group.1", "1:2:3");
@@ -67,109 +51,74 @@ public class QuorumHierarchicalIT {
     }
 
     // ========================================================================
-    // TEST SUITE IT — Top-Down: SyncedLearnerTracker ↔ QuorumHierarchical
+    // Integration Test: SyncedLearnerTracker ↔ QuorumHierarchical
     // ========================================================================
 
-    /**
-     * Il tracker riceve gli ACK dei server e delega a QuorumHierarchical.containsQuorum().
-     * Con un cluster a 3 nodi, 2 ACK bastano per il quorum.
-     */
     @Test
     @Timeout(5)
     public void MajorityAcks_HasAllQuorums_ReturnsTrue() throws Exception {
         QuorumHierarchical qh = buildThreeNodeCluster();
-
-        // Top module: SyncedLearnerTracker (mai testato in unit)
         SyncedLearnerTracker tracker = new SyncedLearnerTracker();
         tracker.addQuorumVerifier(qh);
 
-        // Simula la ricezione degli ACK dal server 1 e 2 (2 su 3 = maggioranza)
         tracker.addAck(1L);
         tracker.addAck(2L);
 
-        // Il Top delega al Down: qh.containsQuorum({1,2}) → true
         assertTrue(tracker.hasAllQuorums(),
                 "Con 2 ACK su 3 nodi il quorum gerarchico deve essere raggiunto");
     }
 
-    /**
-     * Con un cluster a 3 nodi, 1 solo ACK non forma maggioranza nel gruppo, 
-     * quindi il quorum non deve essere raggiunto.
-     */
     @Test
     @Timeout(5)
     public void MinorityAcks_HasAllQuorums_ReturnsFalse() throws Exception {
         QuorumHierarchical qh = buildThreeNodeCluster();
-
         SyncedLearnerTracker tracker = new SyncedLearnerTracker();
         tracker.addQuorumVerifier(qh);
 
-        // Solo server 1 ha confermato
         tracker.addAck(1L);
 
-        // Il Top delega al Down: qh.containsQuorum({1}) → false
         assertFalse(tracker.hasAllQuorums(),
                 "Con 1 ACK su 3 nodi il quorum NON deve essere raggiunto");
     }
 
-    /**
-     * Con 2 gruppi (1,2,3) e (4,5), servono almeno 2 ACK nel gruppo 1
-     * e almeno 1 ACK nel gruppo 2 per raggiungere il quorum gerarchico.
-     * Testiamo che avere la maggioranza in un solo gruppo non basta.
-     */
     @Test
     @Timeout(5)
     public void TwoGroups_PartialQuorum_ReturnsFalse() throws Exception {
         QuorumHierarchical qh = buildTwoGroupCluster();
-
         SyncedLearnerTracker tracker = new SyncedLearnerTracker();
         tracker.addQuorumVerifier(qh);
 
-        // Maggioranza nel gruppo 1 (2 su 3), ma nessun ACK nel gruppo 2
+        // Maggioranza nel gruppo 1, ma nessun ACK nel gruppo 2
         tracker.addAck(1L);
         tracker.addAck(2L);
 
-        // Il Top delega al Down: qh.containsQuorum({1,2}) → false
-        // perché manca la maggioranza nel gruppo 2
         assertFalse(tracker.hasAllQuorums(),
                 "Con ACK solo nel gruppo 1, il quorum gerarchico multi-gruppo NON è raggiunto");
     }
 
-    /**
-     * Il quorum viene raggiunto quando entrambi i gruppi hanno la maggioranza.
-     */
     @Test
     @Timeout(5)
     public void TwoGroups_FullQuorum_ReturnsTrue() throws Exception {
         QuorumHierarchical qh = buildTwoGroupCluster();
-
         SyncedLearnerTracker tracker = new SyncedLearnerTracker();
         tracker.addQuorumVerifier(qh);
 
-        // Maggioranza in entrambi i gruppi: {1,2} nel gruppo 1, {4,5} nel gruppo 2
         tracker.addAck(1L);
         tracker.addAck(2L);
         tracker.addAck(4L);
         tracker.addAck(5L);
 
-        // Il Top delega al Down: qh.containsQuorum({1,2,4,5}) → true
         assertTrue(tracker.hasAllQuorums(),
                 "Con la maggioranza in entrambi i gruppi, il quorum deve essere raggiunto");
     }
 
-    /**
-     * Verifica l'interazione tra SyncedLearnerTracker.addAck() e QuorumHierarchical.getVotingMembers().
-     * Un ACK di un server inesistente non deve alterare il verdetto.
-     */
     @Test
     @Timeout(5)
     public void UnknownServerAck_IsIgnored() throws Exception {
         QuorumHierarchical qh = buildThreeNodeCluster();
-
         SyncedLearnerTracker tracker = new SyncedLearnerTracker();
         tracker.addQuorumVerifier(qh);
 
-        // Server 99 non esiste nella configurazione
         boolean changed = tracker.addAck(99L);
 
         assertFalse(changed,
