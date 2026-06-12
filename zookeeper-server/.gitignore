@@ -1,0 +1,10 @@
+
+# Generati da EvoSuite/Tooling locale
+evosuite/
+evosuite-report/
+evosuite-tests/
+**/evosuite-report/
+**/evosuite-tests/
+zulu8*/
+zulu8.tar.gz
+zookeeper-server/cp*.txt

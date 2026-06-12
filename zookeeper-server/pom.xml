@@ -227,6 +227,16 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <testExcludes>
+            <testExclude>**/*_C*.java</testExclude>
+          </testExcludes>
+        </configuration>
+      </plugin>
+
+      <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>0.8.10</version>

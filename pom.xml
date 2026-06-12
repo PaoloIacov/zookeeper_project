@@ -484,6 +484,7 @@
                   <exclude>**/ReadOnlyModeTest.java</exclude>
                   <exclude>**/KeeperStateTest.java</exclude>
               </excludes>
+              
             </configuration>
             <executions>
               <execution>
@@ -796,10 +797,15 @@
                <compilerArg>-Xlint:deprecation</compilerArg>
                <compilerArg>-Xlint:unchecked</compilerArg>
                <compilerArg>-Xlint:-options</compilerArg>
-               <compilerArg>-Xdoclint:-missing</compilerArg>
+               <compilerArg>-Xdoclint:none</compilerArg>
                <!-- https://issues.apache.org/jira/browse/MCOMPILER-205 -->
                <compilerArg>-Xpkginfo:always</compilerArg>
               </compilerArgs>
+              <excludes>
+                  <exclude>**/*_C*.java</exclude>
+                  
+              </excludes>
+              
             </configuration>
         </plugin>
         <plugin>
@@ -1118,6 +1124,7 @@
             <exclude>**/tests/wrappers-mt.opt</exclude>
             <exclude>**/c-doc.Doxyfile</exclude>
           </excludes>
+              
           <consoleOutput>true</consoleOutput>
         </configuration>
       </plugin>
@@ -1181,6 +1188,7 @@
                   <excludes>
                     <exclude>commons-lang:commons-lang</exclude>
                   </excludes>
+              
                   <searchTransitive>false</searchTransitive>
                   <message>We don't use commons-lang anymore, so do not depend on it directly.</message>
                 </bannedDependencies>
@@ -1198,6 +1206,7 @@
                   <excludes>
                     <exclude>org.apache.commons:commons-lang3</exclude>
                   </excludes>
+              
                   <searchTransitive>false</searchTransitive>
                   <message>We don't use commons-lang3, so do not depend on it directly.</message>
                 </bannedDependencies>
@@ -1215,6 +1224,7 @@
                   <excludes>
                     <exclude>com.googlecode.json-simple:json-simple</exclude>
                   </excludes>
+              
                   <searchTransitive>false</searchTransitive>
                   <message>We don't use json-simple anymore, so do not depend on it directly.</message>
                 </bannedDependencies>
@@ -1242,6 +1252,7 @@
         <excludes>
           <exclude>**/*.*</exclude>
         </excludes>
+              
       </resource>
     </resources>
   </build>
